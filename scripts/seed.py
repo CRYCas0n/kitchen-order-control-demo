@@ -1,10 +1,12 @@
 """Repeatable demo seed. Existing data is preserved unless --reset is explicit."""
 import argparse
+import copy
 import json
 from datetime import date, timedelta
 from pathlib import Path
 
 from app.config import COST_FIELDS, ROOT, STAGES, Settings
+from app.calculations import enrich, summarize_orders
 from app.database import add_history, connect, dashboard, initialize
 
 SEED_TIME = "2026-09-30T08:00:00+00:00"
@@ -76,6 +78,17 @@ def export(path, destination):
         data = dashboard(db)
     data["source"] = "simulation"
     data["generated_at"] = SEED_TIME
+    # Precompute the one offline demonstration with the same Python aggregation as the API.
+    # Browser simulation never implements its own deadline, margin or priority rules.
+    changes = {"problem_type": "Комплектация", "problem_comment": "Отсутствует фасад 600 мм (имитация)",
+               "problem_help_needed": "Согласовать доставку фасада", "problem_status": "open",
+               "next_action": "Согласовать доставку фасада"}
+    simulated = copy.deepcopy(data["orders"])
+    order = next(o for o in simulated if o["id"] == 1)
+    order.update(changes)
+    order.update(enrich(order, order["costs"]))
+    data["simulation"] = {"order_id": 1, "changes": {**changes, "open_problem": order["open_problem"]},
+                          "summary": summarize_orders(simulated)}
     Path(destination).write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 

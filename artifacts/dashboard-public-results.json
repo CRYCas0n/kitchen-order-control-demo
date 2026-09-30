@@ -1,0 +1,27 @@
+{
+  "url": "https://kitchen.45-67-202-162.sslip.io",
+  "generated_at": "2026-09-30T13:27:23+00:00",
+  "scope": "read-only public API and real Chrome",
+  "kpis": {
+    "active": 22,
+    "overdue": 9,
+    "open_problem": 4,
+    "delay_risk": 5,
+    "incomplete": 1,
+    "low_margin": 2
+  },
+  "finance": {
+    "revenue_actual": 7840000.0,
+    "margin_income": 2970000.0,
+    "average_margin_percent": 37.03,
+    "complete_count": 23,
+    "average_count": 23,
+    "loss_count": 1
+  },
+  "results": [
+    "Public API partitions, complete-data finance totals, arithmetic mean and completed-order exclusion: PASS",
+    "All six public KPI click filters, chart counts and attention list agree with API: PASS",
+    "Public UI failed refresh preserves previous charts/timestamp and visibly warns, then recovers: PASS",
+    "Responsive 1100/768/390px layout without page overflow; JavaScript errors: 0"
+  ]
+}

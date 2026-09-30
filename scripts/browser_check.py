@@ -10,6 +10,7 @@ import httpx
 from playwright.sync_api import sync_playwright
 
 from app.config import ROOT
+from app.database import connect
 from scripts.seed import seed
 
 
@@ -38,6 +39,20 @@ def main():
                 page=context.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
                 page.goto('http://127.0.0.1:18888/');page.locator('.order-card').first.wait_for()
                 assert page.locator('.order-card').count()==24
+                overview=httpx.get('http://127.0.0.1:18888/api/dashboard').json()
+                for key,count in overview['kpis'].items():
+                    assert int(page.locator(f'[data-filter="{key}"] .kpi-value').inner_text())==count
+                    page.locator(f'[data-filter="{key}"]').click()
+                    assert page.locator('.order-card').count()==count
+                    actual_ids={int(v) for v in page.locator('.order-card').evaluate_all('(nodes) => nodes.map(n => n.dataset.order)')}
+                    assert actual_ids=={o['id'] for o in overview['orders'] if o[key]}
+                    page.locator('#reset').click()
+                assert page.locator('#stage-chart .stage-row').count()==10
+                assert sum(int(n) for n in page.locator('#stage-chart .stage-row').evaluate_all('(nodes) => nodes.map(n => n.dataset.count)'))==24
+                assert page.locator('#attention .order-link').count()==5
+                assert [int(v) for v in page.locator('#attention .order-link').evaluate_all('(nodes) => nodes.map(n => n.dataset.order)')]==overview['summary']['attention_ids']
+                page.locator('#executive-dashboard').screenshot(path=str(artifacts/'30-executive-dashboard-local.png'))
+                results.append('All six KPI totals and click filters match exact order IDs; 10 stage counts total 24; top five priority list: PASS')
                 page.screenshot(path=str(artifacts/'01-dashboard-local.png'),full_page=True)
                 results.append('24 orders, 10 stages, KPI and dashboard rendering: PASS')
                 page.locator('[data-filter="overdue"]').click()
@@ -52,20 +67,53 @@ def main():
                 page.locator('#economy').screenshot(path=str(artifacts/'03-economy-local.png'))
                 page.locator('#close-details').click();results.append('Problem details, financial calculation and history: PASS')
                 timestamp=page.locator('#last-updated').inner_text()
+                chart_before=page.locator('.overview-grid').inner_html()
                 page.route('**/api/dashboard',lambda route:route.abort())
                 page.locator('#refresh').click();page.locator('#error').wait_for()
                 assert page.locator('#last-updated').inner_text()==timestamp
                 assert page.locator('.order-card').count()==24
+                assert page.locator('.overview-grid').inner_html()==chart_before
                 assert 'устаревшей' in page.locator('#error').inner_text()
                 page.screenshot(path=str(artifacts/'04-stale-data-local.png'))
                 page.unroute('**/api/dashboard');page.locator('#refresh').click();page.locator('#error').wait_for(state='hidden')
                 results.append('Failed refresh preserves last successful timestamp and shows stale-data warning; recovery: PASS')
+                timestamp=page.locator('#last-updated').inner_text()
+                page.route('**/api/dashboard',lambda route:route.fulfill(json={'orders':[],'stages':[],'demo_date':'2026-09-30','source':'backend','summary':{'finance':{},'kpis':{},'attention_ids':[]}}))
+                page.locator('#refresh').click();page.locator('#error').wait_for()
+                assert page.locator('#last-updated').inner_text()==timestamp
+                assert page.locator('.overview-grid').inner_html()==chart_before
+                page.unroute('**/api/dashboard');page.locator('#refresh').click();page.locator('#error').wait_for(state='hidden')
+                results.append('Malformed successful HTTP response does not replace valid charts or timestamp: PASS')
                 original=httpx.get('http://127.0.0.1:18888/api/orders/1').json()
                 page.select_option('#mode','simulation');page.locator('#simulation-notice').wait_for();page.locator('#refresh:not([disabled])').wait_for()
                 page.locator('#simulate').click();assert 'Имитация' in page.locator('#detail-content').inner_text()
+                simulation=httpx.get('http://127.0.0.1:18888/static/demo-data.json').json()['simulation']['summary']
+                assert int(page.locator('[data-filter="open_problem"] .kpi-value').inner_text())==simulation['kpis']['open_problem']
                 assert httpx.get('http://127.0.0.1:18888/api/orders/1').json()['history']==original['history']
                 page.locator('#close-details').click();page.select_option('#mode','backend');page.locator('#refresh:not([disabled])').wait_for()
                 results.append('Explicit simulation changes only local data and labels history as simulation: PASS')
+                # Independent fixture writes emulate new business data while the page keeps its old snapshot.
+                with connect(path) as db:
+                    db.execute("UPDATE orders SET stage='Проектирование',forecast_date='2026-10-09' WHERE id=2")
+                response=httpx.post('http://127.0.0.1:18888/api/admin/orders/1/rework',auth=('browser-test','local-browser-test'),
+                                    headers={'X-Requested-With':'kitchen-control'},json={'rework_actual':85000})
+                assert response.status_code==200
+                assert int(page.locator('[data-filter="low_margin"] .kpi-value').inner_text())==overview['kpis']['low_margin']
+                page.locator('#refresh').click();page.locator('#refresh:not([disabled])').wait_for()
+                fresh=httpx.get('http://127.0.0.1:18888/api/dashboard').json()['summary']
+                assert int(page.locator('[data-filter="low_margin"] .kpi-value').inner_text())==fresh['kpis']['low_margin']==overview['kpis']['low_margin']+1
+                assert int(page.locator('[data-filter="delay_risk"] .kpi-value').inner_text())==fresh['kpis']['delay_risk']==overview['kpis']['delay_risk']+1
+                for row in fresh['stages']:
+                    assert int(page.locator(f'.stage-row[data-stage="{row["stage"]}"]').get_attribute('data-count'))==row['count']
+                for chart,values in [('deadline-chart',fresh['deadlines']),('margin-chart',fresh['margins'])]:
+                    for key,count in values.items():
+                        if key=='not_calculable' and not count:continue
+                        assert int(page.locator(f'#{chart} [data-bucket="{key}"]').get_attribute('data-count'))==count
+                shown_income=page.locator('[data-metric="margin_income"]').inner_text()
+                shown_income=''.join(c for c in shown_income if c.isdigit() or c in ',-').replace(',','.')
+                assert float(shown_income)==fresh['finance']['margin_income']
+                assert fresh['finance']['margin_income']==overview['summary']['finance']['margin_income']-75000
+                results.append('Fresh API refresh updates KPI, stage/deadline/margin charts and aggregate income after real fixture/admin changes: PASS')
                 page.goto('http://127.0.0.1:18888/admin');page.locator('#admin-order option').first.wait_for(state='attached')
                 page.fill('#rework','85000');page.locator('#save').click();page.locator('#admin-result').wait_for()
                 assert 'Сохранено' in page.locator('#admin-result').inner_text()
@@ -73,11 +121,12 @@ def main():
                 page.screenshot(path=str(artifacts/'05-admin-local.png'))
                 saved=httpx.get('http://127.0.0.1:18888/api/orders/1').json()
                 assert saved['economy']['actual']['margin_income']==25000 and saved['low_margin']
-                page.goto('http://127.0.0.1:18888/');page.locator('.order-link[data-order="1"]').click()
+                page.goto('http://127.0.0.1:18888/');page.locator('.order-card[data-order="1"]').click()
                 page.locator('#economy').screenshot(path=str(artifacts/'06-rework-result-local.png'))
                 results.append('Browser admin -> HTTP API -> SQLite -> dashboard: margin falls to 25000, low-margin warning: PASS')
                 page.locator('#close-details').click();page.set_viewport_size({'width':390,'height':844})
                 page.screenshot(path=str(artifacts/'07-mobile-local.png'),full_page=True)
+                page.locator('#executive-dashboard').screenshot(path=str(artifacts/'31-executive-dashboard-mobile-local.png'))
                 assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
                 results.append('390px mobile layout: no page-level horizontal overflow: PASS')
                 assert not errors,errors

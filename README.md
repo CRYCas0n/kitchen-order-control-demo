@@ -152,6 +152,8 @@ sudo -u kitchen-control .venv/bin/python -m scripts.manage outbox
 
 ## Сроки и экономика
 
+На главной странице есть компактный дашборд: шесть кликабельных KPI, этапы и сроки, общая экономика, распределение маржинальности и пять заказов для внимания. Все показатели используют расчёты карточек из backend; новых таблиц или библиотек графиков нет. [Правила сводки и проверки](docs/DASHBOARD.md).
+
 - Активная просрочка: первоначальный срок раньше `DEMO_DATE`, заказ не завершён.
 - Риск задержки: прогноз позже первоначального срока. Это отдельный признак.
 - Завершённый заказ оценивается по фактической дате завершения и не попадает в активную просрочку.
@@ -223,10 +225,11 @@ sudo -u kitchen-control .venv/bin/python -m scripts.manage backup data/backup-20
 ```powershell
 .venv\Scripts\python -m pip install -r requirements-dev.txt
 .venv\Scripts\python -m scripts.browser_check
+.venv\Scripts\python -m scripts.dashboard_check
 .venv\Scripts\python -m scripts.public_check
 ```
 
-Первый скрипт использует изолированную локальную базу. Второй работает с публичным demo URL, меняет переделку КФ-2601 через admin, фиксирует доказательства и возвращает исходную сумму с сохранением аудита. Используется установленный Chrome. На машине без браузера установите Playwright Chromium (`python -m playwright install chromium`) и адаптируйте путь в public_check.
+`browser_check` использует изолированную локальную базу. `dashboard_check` проверяет публичный дашборд без изменения данных. `public_check` работает с публичным demo URL, меняет переделку КФ-2601 через admin, фиксирует доказательства и возвращает исходную сумму с сохранением аудита. Используется установленный Chrome. На машине без браузера установите Playwright Chromium (`python -m playwright install chromium`) и адаптируйте путь в public_check.
 
 Результаты и скриншоты записываются в `artifacts/`. Они не содержат токены, Basic Auth и секретные заголовки.
 

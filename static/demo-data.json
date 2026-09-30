@@ -2063,7 +2063,185 @@
     "active": 22,
     "overdue": 9,
     "open_problem": 2,
+    "delay_risk": 5,
     "incomplete": 1,
     "low_margin": 2
+  },
+  "summary": {
+    "kpis": {
+      "active": 22,
+      "overdue": 9,
+      "open_problem": 2,
+      "delay_risk": 5,
+      "incomplete": 1,
+      "low_margin": 2
+    },
+    "stages": [
+      {
+        "stage": "Замер",
+        "count": 2
+      },
+      {
+        "stage": "Проектирование",
+        "count": 2
+      },
+      {
+        "stage": "Согласование",
+        "count": 2
+      },
+      {
+        "stage": "Комплектация",
+        "count": 2
+      },
+      {
+        "stage": "Производство",
+        "count": 3
+      },
+      {
+        "stage": "Контроль качества",
+        "count": 2
+      },
+      {
+        "stage": "Доставка",
+        "count": 3
+      },
+      {
+        "stage": "Монтаж",
+        "count": 4
+      },
+      {
+        "stage": "Приёмка",
+        "count": 2
+      },
+      {
+        "stage": "Завершён",
+        "count": 2
+      }
+    ],
+    "deadlines": {
+      "on_time": 14,
+      "risk": 0,
+      "overdue": 9,
+      "completed_late": 1
+    },
+    "margins": {
+      "normal": 21,
+      "low": 1,
+      "negative": 1,
+      "incomplete": 1,
+      "not_calculable": 0
+    },
+    "finance": {
+      "revenue_actual": 7840000.0,
+      "margin_income": 2970000.0,
+      "average_margin_percent": 37.03,
+      "complete_count": 23,
+      "average_count": 23,
+      "loss_count": 1
+    },
+    "attention_ids": [
+      4,
+      5,
+      18,
+      24,
+      7
+    ],
+    "attention_total": 9,
+    "invalid_count": 0,
+    "total_count": 24
+  },
+  "simulation": {
+    "order_id": 1,
+    "changes": {
+      "problem_type": "Комплектация",
+      "problem_comment": "Отсутствует фасад 600 мм (имитация)",
+      "problem_help_needed": "Согласовать доставку фасада",
+      "problem_status": "open",
+      "next_action": "Согласовать доставку фасада",
+      "open_problem": true
+    },
+    "summary": {
+      "kpis": {
+        "active": 22,
+        "overdue": 9,
+        "open_problem": 3,
+        "delay_risk": 5,
+        "incomplete": 1,
+        "low_margin": 2
+      },
+      "stages": [
+        {
+          "stage": "Замер",
+          "count": 2
+        },
+        {
+          "stage": "Проектирование",
+          "count": 2
+        },
+        {
+          "stage": "Согласование",
+          "count": 2
+        },
+        {
+          "stage": "Комплектация",
+          "count": 2
+        },
+        {
+          "stage": "Производство",
+          "count": 3
+        },
+        {
+          "stage": "Контроль качества",
+          "count": 2
+        },
+        {
+          "stage": "Доставка",
+          "count": 3
+        },
+        {
+          "stage": "Монтаж",
+          "count": 4
+        },
+        {
+          "stage": "Приёмка",
+          "count": 2
+        },
+        {
+          "stage": "Завершён",
+          "count": 2
+        }
+      ],
+      "deadlines": {
+        "on_time": 14,
+        "risk": 0,
+        "overdue": 9,
+        "completed_late": 1
+      },
+      "margins": {
+        "normal": 21,
+        "low": 1,
+        "negative": 1,
+        "incomplete": 1,
+        "not_calculable": 0
+      },
+      "finance": {
+        "revenue_actual": 7840000.0,
+        "margin_income": 2970000.0,
+        "average_margin_percent": 37.03,
+        "complete_count": 23,
+        "average_count": 23,
+        "loss_count": 1
+      },
+      "attention_ids": [
+        1,
+        4,
+        5,
+        18,
+        24
+      ],
+      "attention_total": 9,
+      "invalid_count": 0,
+      "total_count": 24
+    }
   }
 }

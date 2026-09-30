@@ -4,7 +4,7 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .calculations import enrich
+from .calculations import enrich, summarize_orders
 from .config import COST_FIELDS, DEMO_DATE, LOW_MARGIN_THRESHOLD, STAGES
 
 
@@ -111,8 +111,11 @@ def get_order(db, order_id):
 
 
 def dashboard(db):
+    # One read snapshot for orders, costs and history, including concurrent Telegram/admin writes.
+    if not db.in_transaction:
+        db.execute("BEGIN")
     orders = [get_order(db, row[0]) for row in db.execute("SELECT id FROM orders ORDER BY id")]
+    summary = summarize_orders(orders)
     return {"demo_date": DEMO_DATE, "low_margin_threshold": LOW_MARGIN_THRESHOLD,
             "source": "backend", "stages": STAGES, "generated_at": now(), "orders": orders,
-            "kpis": {key: sum(bool(o.get(key)) for o in orders) for key in
-                     ("active", "overdue", "open_problem", "incomplete", "low_margin")}}
+            "kpis": summary["kpis"], "summary": summary}

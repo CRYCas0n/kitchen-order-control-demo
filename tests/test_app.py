@@ -123,6 +123,19 @@ class AppTests(unittest.TestCase):
         self.assertEqual(len(set(o['city'] for o in data['orders'] if o['sales_point_type']=='Дилер')),5)
         self.assertTrue(all(data['kpis'].values()))
 
+    def test_dashboard_recalculates_after_admin_update(self):
+        before = self.client.get('/api/dashboard').json()
+        self.assertEqual(before['kpis'], before['summary']['kpis'])
+        response = self.client.post('/api/admin/orders/1/rework', json={'rework_actual':85000},
+                                    auth=('coordinator','test-only-password'), headers={'X-Requested-With':'kitchen-control'})
+        self.assertEqual(response.status_code, 200)
+        after = self.client.get('/api/dashboard').json()
+        self.assertEqual(after['summary']['finance']['margin_income'], before['summary']['finance']['margin_income'] - 75000)
+        self.assertEqual(after['summary']['margins']['low'], before['summary']['margins']['low'] + 1)
+        self.assertEqual(after['summary']['margins']['normal'], before['summary']['margins']['normal'] - 1)
+        self.assertEqual(after['kpis']['low_margin'], before['kpis']['low_margin'] + 1)
+        self.assertEqual(after['summary']['finance']['complete_count'], 23)
+
     def test_problem_transaction_duplicate_and_notification(self):
         nonce=self.problem()
         self.send(callback='confirm:'+nonce,update_id=9000)

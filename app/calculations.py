@@ -58,3 +58,59 @@ def enrich(order, costs):
         result.update(data_error=f"Ошибка данных: {exc}", active=False, overdue=False, delay_risk=False,
                       open_problem=False, incomplete=True, low_margin=False, economy={})
     return result
+
+
+def summarize_orders(orders):
+    """Aggregate the already calculated order flags and economics; never substitute missing costs."""
+    kpis = {key: sum(bool(o.get(key)) for o in orders) for key in
+            ("active", "overdue", "open_problem", "delay_risk", "incomplete", "low_margin")}
+    deadline_counts = dict.fromkeys(("on_time", "risk", "overdue", "completed_late"), 0)
+    margin_counts = dict.fromkeys(("normal", "low", "negative", "incomplete", "not_calculable"), 0)
+    complete = []
+    percentages = []
+    invalid_count = 0
+    for order in orders:
+        if order.get("data_error"):
+            invalid_count += 1
+            margin_counts["incomplete"] += 1
+            continue
+        # The chart is a partition; the KPI flags may overlap by design.
+        bucket = ("completed_late" if order["completed_late"] else "overdue" if order["overdue"]
+                  else "risk" if order["delay_risk"] else "on_time")
+        deadline_counts[bucket] += 1
+        actual = order["economy"]["actual"]
+        if not actual["complete"]:
+            margin_counts["incomplete"] += 1
+            continue
+        complete.append(order)
+        if actual["margin_percent"] is not None:
+            percentages.append(Decimal(str(actual["margin_percent"])))
+        bucket = ("negative" if actual["negative_margin"] else "not_calculable" if actual["margin_percent"] is None
+                  else "low" if actual["low_margin"] else "normal")
+        margin_counts[bucket] += 1
+
+    def total(value):
+        return float(sum((Decimal(str(value(o))) for o in complete), Decimal(0))) if complete else None
+
+    attention = [o for o in orders if any(o.get(key) for key in
+                 ("overdue", "open_problem", "delay_risk", "incomplete", "low_margin", "data_error"))]
+    # Only three obvious groups; earliest next action breaks ties within each group.
+    attention.sort(key=lambda o: (
+        0 if o.get("overdue") and o.get("open_problem") else 1 if o.get("overdue") or o.get("open_problem") else 2,
+        o.get("next_action_due") or "9999-12-31", o["id"]))
+    return {
+        "kpis": kpis,
+        "stages": [{"stage": stage, "count": sum(o["stage"] == stage for o in orders)} for stage in STAGES],
+        "deadlines": deadline_counts,
+        "margins": margin_counts,
+        "finance": {
+            "revenue_actual": total(lambda o: o["costs"]["revenue_actual"]),
+            "margin_income": total(lambda o: o["economy"]["actual"]["margin_income"]),
+            "average_margin_percent": float((sum(percentages) / len(percentages)).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP)) if percentages else None,
+            "complete_count": len(complete), "average_count": len(percentages),
+            "loss_count": margin_counts["negative"],
+        },
+        "attention_ids": [o["id"] for o in attention[:5]], "attention_total": len(attention),
+        "invalid_count": invalid_count, "total_count": len(orders),
+    }

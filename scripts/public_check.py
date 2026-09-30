@@ -27,7 +27,7 @@ def main():
                 page.goto(base);page.locator('.order-card').first.wait_for();assert page.locator('.order-card').count()==24
                 page.screenshot(path=str(artifacts/'10-dashboard-public.png'),full_page=True)
                 page.locator('#board').screenshot(path=str(artifacts/'11-board-public.png'))
-                page.locator('.order-link[data-order="5"]').click();page.screenshot(path=str(artifacts/'12-problem-public.png'))
+                page.locator('.order-card[data-order="5"]').click();page.screenshot(path=str(artifacts/'12-problem-public.png'))
                 page.locator('#close-details').click();page.goto(base+'/admin');page.locator('#admin-order option').first.wait_for(state='attached')
                 page.fill('#rework','85000');page.locator('#save').click();page.locator('#admin-result').wait_for()
                 assert 'Сохранено' in page.locator('#admin-result').inner_text()
@@ -38,7 +38,7 @@ def main():
                 assert after['economy']['actual']['margin_percent']==8.33
                 assert after['low_margin']
                 assert after['history'][0]['source']=='admin'
-                page.goto(base);page.locator('.order-link[data-order="1"]').click()
+                page.goto(base);page.locator('.order-card[data-order="1"]').click()
                 page.screenshot(path=str(artifacts/'14-rework-detail-public.png'))
                 page.locator('#economy').screenshot(path=str(artifacts/'15-rework-economy-public.png'))
                 results.append('Public browser admin -> backend -> saved cost 85000 -> refreshed public dashboard: margin 25000 / 8.33%, warning and history: PASS')

@@ -4,7 +4,7 @@ const esc = value => String(value ?? '—').replace(/[&<>"']/g, c => ({'&':'&amp
 const date = value => value ? value.slice(0,10).split('-').reverse().join('.') : '—';
 const rub = value => value === null || value === undefined ? 'Нет данных' : new Intl.NumberFormat('ru-RU', {maximumFractionDigits:2}).format(value) + ' ₽';
 const time = value => new Date(value).toLocaleString('ru-RU', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'});
-const labels = {active:'Активные заказы',overdue:'Просроченные активные',open_problem:'С открытыми проблемами',incomplete:'Неполные финансовые данные',low_margin:'Низкая / отрицательная маржа'};
+const labels = {active:'Активные заказы',overdue:'Просроченные',open_problem:'С открытыми проблемами',delay_risk:'С риском задержки',incomplete:'Неполные финансовые данные',low_margin:'Низкая / отрицательная маржинальность'};
 const costLabels = {revenue:'Выручка с учётом скидок',materials:'Материалы',manufacturing:'Изготовление',delivery:'Доставка',installation:'Монтаж',commission:'Комиссия',rework:'Переделки и рекламации'};
 let snapshot = null, lastSuccess = null, kpiFilter = '', selectedOrder = null, requestNumber = 0;
 
@@ -35,16 +35,60 @@ function populateFilters() {
   }
 }
 
+function chartRows(rows, total) {
+  return rows.map(([key,label,count,tone])=>`<div class="chart-row tone-${tone}" data-bucket="${key}" data-count="${count}"><span class="chart-label">${esc(label)}</span><progress max="${Math.max(1,total)}" value="${count}" aria-hidden="true"></progress><strong class="chart-count">${count}</strong></div>`).join('');
+}
+
+function renderOverview() {
+  const summary = snapshot.summary, finance = summary.finance;
+  $('overview-count').textContent = `Все ${summary.total_count} заказов`;
+  $('kpis').innerHTML = Object.entries(labels).map(([key,label])=>`<button class="kpi ${kpiFilter===key?'active':''}" data-filter="${key}" aria-pressed="${kpiFilter===key}"><span class="kpi-label">${label}</span><span class="kpi-value">${summary.kpis[key]}</span><span class="kpi-foot">${key==='active'?'До закрытия заказа':key==='overdue'?'Активные, срок истёк':key==='delay_risk'?'Прогноз позже обещанного':key==='low_margin'?`Порог ${snapshot.low_margin_threshold}%`:'Проверить на планёрке'} ↗</span></button>`).join('');
+  $('stage-chart').innerHTML = summary.stages.map(row=>`<div class="stage-row" data-stage="${esc(row.stage)}" data-count="${row.count}"><span>${esc(row.stage)}</span><progress value="${row.count}" max="${Math.max(1,...summary.stages.map(s=>s.count))}" aria-hidden="true"></progress><strong>${row.count}</strong></div>`).join('');
+  const deadlines = summary.deadlines;
+  $('deadline-chart').innerHTML = chartRows([
+    ['on_time','В срок',deadlines.on_time,'green'],['risk','Риск задержки',deadlines.risk,'orange'],
+    ['overdue','Просрочено',deadlines.overdue,'red'],['completed_late','Завершено с опозданием',deadlines.completed_late,'red'],
+  ], summary.total_count);
+  $('finance-metrics').innerHTML = [
+    ['revenue_actual','Фактическая выручка',rub(finance.revenue_actual),''],
+    ['margin_income','Маржинальный доход',rub(finance.margin_income),finance.margin_income<0?'negative':''],
+    ['average_margin_percent','Средняя маржинальность',finance.average_margin_percent===null?'Не рассчитывается':new Intl.NumberFormat('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2}).format(finance.average_margin_percent)+'%',''],
+    ['loss_count','Убыточные заказы',finance.loss_count,finance.loss_count?'negative':''],
+  ].map(([key,label,value,tone])=>`<div><dt>${label}</dt><dd data-metric="${key}" class="${tone}">${value}</dd></div>`).join('');
+  $('finance-note').textContent = `Суммы: ${finance.complete_count} из ${summary.total_count} заказов с полным фактом. Среднее арифметическое: ${finance.average_count} заказов с рассчитанным процентом.`;
+  $('margin-threshold').textContent = snapshot.low_margin_threshold;
+  const margins = summary.margins;
+  const marginRows = [['normal','Нормальная',margins.normal,'green'],['low','Низкая',margins.low,'orange'],
+    ['negative','Отрицательная',margins.negative,'red'],['incomplete','Данные неполные',margins.incomplete,'gray']];
+  if(margins.not_calculable) marginRows.push(['not_calculable','Не рассчитывается: выручка 0',margins.not_calculable,'gray']);
+  $('margin-chart').innerHTML = chartRows(marginRows, summary.total_count);
+  $('summary-error').hidden = !summary.invalid_count;
+  $('summary-error').textContent = `Ошибка данных у ${summary.invalid_count} заказов. Они исключены из экономики и диаграммы сроков и отмечены в карточках.`;
+  const attention = summary.attention_ids.map(id=>snapshot.orders.find(o=>o.id===id)).filter(Boolean);
+  $('attention-count').textContent = `${attention.length} из ${summary.attention_total}`;
+  $('attention').innerHTML = attention.length ? attention.map(o=>`<tr><td><button class="order-link" data-order="${o.id}">${esc(o.order_number)} ↗</button></td><td>${tags(o)}${o.open_problem?`<span class="attention-comment" title="${esc(o.problem_comment)}">${esc(o.problem_comment)}</span>`:''}</td><td>${esc(o.stage)}</td><td>${esc(o.stage_executor)}</td><td>${date(o.next_action_due)}</td></tr>`).join('') : '<tr><td colspan="5">Нет заказов, требующих внимания.</td></tr>';
+}
+
+function validSnapshot(data) {
+  const s=data?.summary;
+  const counts=values=>values.every(value=>Number.isInteger(value)&&value>=0);
+  return Array.isArray(data?.orders) && Array.isArray(data.stages) && Boolean(data.demo_date) &&
+    s?.total_count===data.orders.length && Array.isArray(s.stages) && s.stages.every(row=>typeof row.stage==='string'&&counts([row.count])) &&
+    s.kpis && counts(Object.keys(labels).map(key=>s.kpis[key])) &&
+    s.deadlines && counts(['on_time','risk','overdue','completed_late'].map(key=>s.deadlines[key])) &&
+    s.margins && counts(['normal','low','negative','incomplete','not_calculable'].map(key=>s.margins[key])) &&
+    s.finance && ['revenue_actual','margin_income','average_margin_percent'].every(key=>s.finance[key]===null||Number.isFinite(s.finance[key])) &&
+    counts([s.finance.complete_count,s.finance.average_count,s.finance.loss_count,s.attention_total,s.invalid_count]) &&
+    Array.isArray(s.attention_ids) && s.attention_ids.every(id=>data.orders.some(o=>o.id===id));
+}
+
 function render() {
   if (!snapshot) return;
   $('demo-date').textContent = date(snapshot.demo_date);
   $('threshold').textContent = snapshot.low_margin_threshold;
   $('data-source').textContent = $('mode').value === 'simulation' ? 'Источник: локальный учебный пример' : 'Источник: backend · SQLite';
-  $('kpis').innerHTML = Object.entries(labels).map(([key,label])=>`<button class="kpi ${kpiFilter===key?'active':''}" data-filter="${key}" aria-pressed="${kpiFilter===key}"><span class="kpi-label">${label}</span><span class="kpi-value">${snapshot.orders.filter(o=>o[key]).length.toString().padStart(2,'0')}</span><span class="kpi-foot">${key==='active'?'До подписания приёмки':key==='overdue'?'От первоначального срока':key==='low_margin'?`Порог ${snapshot.low_margin_threshold}%`:'Проверить на планёрке'} ↗</span></button>`).join('');
+  renderOverview();
   const orders = filtered();
-  const attention = orders.filter(o=>o.overdue || o.open_problem || o.delay_risk || o.incomplete || o.low_margin || o.data_error);
-  $('attention-count').textContent = attention.length;
-  $('attention').innerHTML = attention.length ? attention.map(o=>`<tr><td><button class="order-link" data-order="${o.id}">${esc(o.order_number)} ↗</button></td><td>${tags(o)}</td><td>${esc(o.stage_executor)}</td><td>${esc(o.next_action)}</td><td>${date(o.next_action_due)}</td></tr>`).join('') : '<tr><td colspan="5">По выбранным фильтрам нет заказов, требующих внимания.</td></tr>';
   $('order-count').textContent = `${orders.length} из ${snapshot.orders.length}`;
   $('active-filter').textContent = kpiFilter ? `Фильтр: ${labels[kpiFilter]}` : 'Все показатели';
   $('empty').hidden = orders.length > 0;
@@ -77,7 +121,7 @@ async function refresh() {
     const response = await fetch(mode==='simulation'?'/static/demo-data.json':'/api/dashboard', {cache:'no-store',signal:AbortSignal.timeout(12000)});
     if (!response.ok) throw new Error('HTTP '+response.status);
     const data = await response.json();
-    if (!Array.isArray(data.orders) || !Array.isArray(data.stages) || !data.demo_date || (mode==='backend' && data.source!=='backend')) throw new Error('Invalid response');
+    if (!validSnapshot(data) || (mode==='backend' && data.source!=='backend')) throw new Error('Invalid response');
     if (request !== requestNumber) return;
     snapshot = data;
     lastSuccess = new Date().toISOString();
@@ -98,6 +142,8 @@ $('refresh').addEventListener('click',refresh);
 $('mode').addEventListener('change',()=>{
   snapshot = null; lastSuccess = null; selectedOrder = null;
   $('details').close(); $('last-updated').textContent='—'; $('kpis').replaceChildren(); $('board').replaceChildren(); $('attention').replaceChildren();
+  for(const key of ['stage-chart','deadline-chart','finance-metrics','finance-note','margin-chart']) $(key).replaceChildren();
+  $('summary-error').hidden=true; $('overview-count').textContent='Загрузка…'; $('attention-count').textContent='—';
   $('simulation-notice').hidden = $('mode').value !== 'simulation';
   $('data-source').textContent='Загрузка выбранного источника…';
   refresh();
@@ -105,15 +151,19 @@ $('mode').addEventListener('change',()=>{
 for(const key of ['stage','sales_point','stage_executor','problem']) $(key).addEventListener('change',render);
 $('reset').addEventListener('click',()=>{kpiFilter='';for(const key of ['stage','sales_point','stage_executor','problem']) $(key).value='';render();});
 document.addEventListener('click',event=>{
-  const kpi=event.target.closest('[data-filter]'); if(kpi){kpiFilter=kpiFilter===kpi.dataset.filter?'':kpi.dataset.filter;render();}
+  const kpi=event.target.closest('[data-filter]'); if(kpi){kpiFilter=kpiFilter===kpi.dataset.filter?'':kpi.dataset.filter;for(const key of ['stage','sales_point','stage_executor','problem']) $(key).value='';render();}
   const card=event.target.closest('[data-order]'); if(card)showOrder(Number(card.dataset.order));
 });
 $('close-details').addEventListener('click',()=>$('details').close());
 $('details').addEventListener('click',event=>{if(event.target===$('details')){const r=$('details').getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)$('details').close();}});
 $('simulate').addEventListener('click',()=>{
   if($('mode').value!=='simulation'||!snapshot)return;
-  const order=snapshot.orders.find(o=>o.id===1);
-  Object.assign(order,{problem_type:'Комплектация',problem_comment:'Отсутствует фасад 600 мм (имитация)',problem_help_needed:'Согласовать доставку фасада',problem_status:'open',open_problem:true,next_action:'Согласовать доставку фасада'});
+  const scenario=snapshot.simulation;
+  if(!scenario)return;
+  const order=snapshot.orders.find(o=>o.id===scenario.order_id);
+  Object.assign(order,scenario.changes);
+  snapshot.summary=scenario.summary;
+  snapshot.kpis=scenario.summary.kpis;
   order.history.unshift({source:'simulation',actor_ref:'Учебный монтажник',created_at:new Date().toISOString(),comment:'Имитация сообщения: отсутствует фасад 600 мм. Telegram и рабочая база не использовались.'});
   render();showOrder(order.id);
 });
