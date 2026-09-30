@@ -1,0 +1,8 @@
+# Kitchen Control -- isolated demo host
+kitchen.45-67-202-162.sslip.io {
+    encode zstd gzip
+    request_body {
+        max_size 256KB
+    }
+    reverse_proxy 172.18.0.1:18080
+}

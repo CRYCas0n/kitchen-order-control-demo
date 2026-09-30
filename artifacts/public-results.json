@@ -1,0 +1,15 @@
+{
+  "url": "https://kitchen.45-67-202-162.sslip.io",
+  "results": [
+    "/api/health: HTTP 200 verified over HTTPS",
+    "/api/dashboard: HTTP 200 verified over HTTPS",
+    "/admin: HTTP 401 verified over HTTPS",
+    "/.env: HTTP 404 verified over HTTPS",
+    "/data/app.db: HTTP 404 verified over HTTPS",
+    "/static/: HTTP 404 verified over HTTPS",
+    "Webhook rejects missing and wrong secret: PASS",
+    "Public browser admin -> backend -> saved cost 85000 -> refreshed public dashboard: margin 25000 / 8.33%, warning and history: PASS",
+    "Public desktop/mobile UI; JavaScript errors: 0",
+    "Original rework cost restored through authenticated API; audit history retained"
+  ]
+}

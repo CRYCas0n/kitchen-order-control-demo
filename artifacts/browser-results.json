@@ -1,0 +1,13 @@
+{
+  "scope": "isolated local HTTP / real Chromium, not Telegram E2E",
+  "results": [
+    "24 orders, 10 stages, KPI and dashboard rendering: PASS",
+    "KPI and stage filters without navigation: PASS",
+    "Problem details, financial calculation and history: PASS",
+    "Failed refresh preserves last successful timestamp and shows stale-data warning; recovery: PASS",
+    "Explicit simulation changes only local data and labels history as simulation: PASS",
+    "Browser admin -> HTTP API -> SQLite -> dashboard: margin falls to 25000, low-margin warning: PASS",
+    "390px mobile layout: no page-level horizontal overflow: PASS",
+    "Browser JavaScript errors: 0"
+  ]
+}

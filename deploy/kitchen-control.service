@@ -1,0 +1,31 @@
+[Unit]
+Description=Kitchen factory order control demo
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+StartLimitIntervalSec=120
+StartLimitBurst=10
+
+[Service]
+Type=simple
+User=kitchen-control
+Group=kitchen-control
+WorkingDirectory=/opt/kitchen-control
+EnvironmentFile=/opt/kitchen-control/.env
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+# Caddy runs in Docker: bind only its private bridge, never the public NIC.
+ExecStart=/opt/kitchen-control/.venv/bin/uvicorn app.main:app --host 172.18.0.1 --port 18080 --proxy-headers --forwarded-allow-ips 172.18.0.3 --workers 1 --no-access-log
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=25
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/kitchen-control/data
+MemoryMax=220M
+
+[Install]
+WantedBy=multi-user.target
