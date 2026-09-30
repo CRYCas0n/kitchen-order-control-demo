@@ -8,7 +8,7 @@ from pathlib import Path
 import httpx
 
 from app.config import Settings
-from app.database import connect, initialize, now
+from app.database import connect, initialize
 
 
 def add_user(settings, telegram_id, role, code, name):

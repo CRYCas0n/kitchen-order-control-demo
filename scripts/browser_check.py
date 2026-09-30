@@ -84,6 +84,19 @@ def main():
                 assert page.locator('.overview-grid').inner_html()==chart_before
                 page.unroute('**/api/dashboard');page.locator('#refresh').click();page.locator('#error').wait_for(state='hidden')
                 results.append('Malformed successful HTTP response does not replace valid charts or timestamp: PASS')
+                page.locator('.order-card[data-order="5"]').click()
+                broken=json.loads(json.dumps(overview));broken['orders'][4]['history']={'invalid':'shape'}
+                old_detail=page.locator('#detail-content').inner_html()
+                timestamp=page.locator('#last-updated').inner_text()
+                page.wait_for_timeout(1100)
+                page.route('**/api/dashboard',lambda route:route.fulfill(json=broken))
+                page.evaluate("document.getElementById('refresh').click()")
+                page.locator('#refresh:not([disabled])').wait_for()
+                assert page.locator('#last-updated').inner_text()==timestamp
+                assert page.locator('#detail-content').inner_html()==old_detail
+                page.locator('#close-details').click();page.locator('#error').wait_for()
+                page.unroute('**/api/dashboard');page.locator('#refresh').click();page.locator('#error').wait_for(state='hidden')
+                results.append('Malformed order with an open detail dialog preserves the old snapshot and success timestamp: PASS')
                 original=httpx.get('http://127.0.0.1:18888/api/orders/1').json()
                 page.select_option('#mode','simulation');page.locator('#simulation-notice').wait_for();page.locator('#refresh:not([disabled])').wait_for()
                 page.locator('#simulate').click();assert 'Имитация' in page.locator('#detail-content').inner_text()
@@ -121,6 +134,22 @@ def main():
                 page.screenshot(path=str(artifacts/'05-admin-local.png'))
                 saved=httpx.get('http://127.0.0.1:18888/api/orders/1').json()
                 assert saved['economy']['actual']['margin_income']==25000 and saved['low_margin']
+                pending=[]
+                page.route('**/api/admin/orders/1/rework',lambda route:pending.append(route))
+                page.fill('#rework','85001');page.locator('#save').click()
+                page.locator('#admin-order:disabled').wait_for()
+                assert page.locator('#rework').is_disabled()
+                page.wait_for_timeout(100)
+                pending[0].abort();page.locator('#admin-result').wait_for()
+                assert 'перед повторным сохранением' in page.locator('#admin-result').inner_text()
+                assert httpx.get('http://127.0.0.1:18888/api/orders/1').json()['costs']['rework_actual']==85000
+                page.unroute('**/api/admin/orders/1/rework')
+                with connect(path) as db:db.execute("UPDATE orders SET forecast_date='invalid' WHERE id=1")
+                page.fill('#rework','85000');page.locator('#save').click();page.locator('#admin-result').wait_for()
+                assert 'Сохранено: КФ-2601' in page.locator('#admin-result').inner_text()
+                assert 'Нет данных' in page.locator('#admin-result').inner_text()
+                with connect(path) as db:db.execute('UPDATE orders SET forecast_date=? WHERE id=1',(original['forecast_date'],))
+                results.append('Admin locks order/input during save; network uncertainty is explicit; saved order with invalid data does not crash UI: PASS')
                 page.goto('http://127.0.0.1:18888/');page.locator('.order-card[data-order="1"]').click()
                 page.locator('#economy').screenshot(path=str(artifacts/'06-rework-result-local.png'))
                 results.append('Browser admin -> HTTP API -> SQLite -> dashboard: margin falls to 25000, low-margin warning: PASS')

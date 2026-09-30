@@ -5,8 +5,9 @@ import logging
 import secrets
 import sqlite3
 from contextlib import asynccontextmanager
+from typing import Annotated
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Path, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
@@ -18,6 +19,7 @@ from .telegram import TelegramAPI, delivery_loop, process_update
 from .validation import ReworkInput
 
 security = HTTPBasic(auto_error=False)
+OrderId = Annotated[int, Path(ge=1, le=2**63-1)]
 
 
 def create_app(settings=None, telegram_api=None, worker=True):
@@ -29,7 +31,12 @@ def create_app(settings=None, telegram_api=None, worker=True):
     async def lifespan(app):
         # After a crash, 'sending' may have reached Telegram: never blindly resend.
         with connect(settings.database_path) as db:
-            db.execute("UPDATE telegram_outbox SET status='uncertain',error='Процесс остановился во время отправки; проверьте доставку' WHERE status='sending'")
+            db.execute("BEGIN IMMEDIATE")
+            interrupted = db.execute("SELECT order_id FROM telegram_outbox WHERE status='sending' AND notification=1").fetchall()
+            reason = "Процесс остановился во время отправки; проверьте доставку"
+            db.execute("UPDATE telegram_outbox SET status='uncertain',error=?,updated_at=? WHERE status='sending'", (reason, now()))
+            for row in interrupted:
+                add_history(db, row["order_id"], "notification_uncertain", reason)
         task = asyncio.create_task(delivery_loop(settings.database_path, api)) if worker else None
         yield
         if task:
@@ -52,7 +59,10 @@ def create_app(settings=None, telegram_api=None, worker=True):
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(request, exc):
-        return JSONResponse(status_code=422, content={"detail": "Некорректные данные. Сумма должна быть от 0 до 1 000 000 000 ₽, максимум два знака после запятой."})
+        message = "Некорректные параметры запроса."
+        if any(error['loc'][0]=='body' for error in exc.errors()):
+            message = "Некорректные данные. Сумма должна быть от 0 до 1 000 000 000 ₽, максимум два знака после запятой."
+        return JSONResponse(status_code=422, content={"detail": message})
 
     @app.exception_handler(Exception)
     async def internal_error(request, exc):
@@ -100,7 +110,7 @@ def create_app(settings=None, telegram_api=None, worker=True):
             return dashboard(db)["orders"]
 
     @app.get("/api/orders/{order_id}")
-    def order(order_id: int):
+    def order(order_id: OrderId):
         with connect(settings.database_path) as db:
             result = get_order(db, order_id)
         if result is None:
@@ -108,11 +118,11 @@ def create_app(settings=None, telegram_api=None, worker=True):
         return result
 
     @app.get("/api/orders/{order_id}/history")
-    def history(order_id: int):
+    def history(order_id: OrderId):
         return order(order_id)["history"]
 
     @app.post("/api/admin/orders/{order_id}/rework")
-    def rework(order_id: int, body: ReworkInput, request: Request, username=Depends(admin),
+    def rework(order_id: OrderId, body: ReworkInput, request: Request, username=Depends(admin),
                x_requested_with: str | None = Header(default=None)):
         if x_requested_with != "kitchen-control":
             raise HTTPException(403, "Отсутствует защитный заголовок")

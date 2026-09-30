@@ -34,6 +34,8 @@ def seed(path, reset=False):
             promised = date(2026, 9, 25) + timedelta(days=(i * 3) % 18)
             if i in (1, 4, 5):
                 promised = date(2026, 9, 27)
+            if i == 11:
+                promised = date(2026, 9, 29)
             forecast = promised + timedelta(days=5 if i in (1, 4, 5, 6, 13) else 0)
             completed = promised + timedelta(days=2 if i == 12 else -1) if stage == "Завершён" else None
             executor = "Илья Мартынов" if stage == "Монтаж" else "Павел Лесков" if stage == "Замер" else ["Анна Миронова", "Денис Соколов", "Елена Волкова"][i % 3]

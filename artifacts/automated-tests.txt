@@ -1,20 +1,29 @@
+test_access_revoked_and_stage_changed_during_confirmation (test_app.AppTests.test_access_revoked_and_stage_changed_during_confirmation) ... ok
 test_admin_auth_input_csrf_and_finance (test_app.AppTests.test_admin_auth_input_csrf_and_finance) ... ok
 test_admin_http_rejected (test_app.AppTests.test_admin_http_rejected) ... ok
 test_bad_row_does_not_break_dashboard (test_app.AppTests.test_bad_row_does_not_break_dashboard) ... ok
 test_concurrent_duplicate_is_one_operation (test_app.AppTests.test_concurrent_duplicate_is_one_operation) ... ok
+test_dashboard_recalculates_after_admin_update (test_app.AppTests.test_dashboard_recalculates_after_admin_update) ... ok
 test_database_constraints (test_app.AppTests.test_database_constraints) ... ok
 test_installer_completion_goes_to_acceptance_with_photo (test_app.AppTests.test_installer_completion_goes_to_acceptance_with_photo) ... ok
+test_malformed_telegram_delivery_confirmation_is_uncertain (test_app.AppTests.test_malformed_telegram_delivery_confirmation_is_uncertain) ... ok
 test_measurer_completion (test_app.AppTests.test_measurer_completion) ... ok
+test_notification_reply_does_not_claim_queue_when_coordinator_missing (test_app.AppTests.test_notification_reply_does_not_claim_queue_when_coordinator_missing) ... ok
+test_oversized_task_and_sender_ids_cannot_crash_webhook (test_app.AppTests.test_oversized_task_and_sender_ids_cannot_crash_webhook) ... ok
+test_oversized_update_id_is_validation_error_not_server_error (test_app.AppTests.test_oversized_update_id_is_validation_error_not_server_error) ... ok
 test_permission_checked_on_list_and_mutation (test_app.AppTests.test_permission_checked_on_list_and_mutation) ... ok
 test_permission_rechecked_mid_dialog (test_app.AppTests.test_permission_rechecked_mid_dialog) ... ok
 test_private_files_and_cache_headers (test_app.AppTests.test_private_files_and_cache_headers) ... ok
 test_problem_transaction_duplicate_and_notification (test_app.AppTests.test_problem_transaction_duplicate_and_notification) ... ok
 test_restart_preserves_dialog (test_app.AppTests.test_restart_preserves_dialog) ... ok
+test_restart_records_uncertain_notification_in_history (test_app.AppTests.test_restart_records_uncertain_notification_in_history) ... ok
 test_rollback_does_not_claim_update (test_app.AppTests.test_rollback_does_not_claim_update) ... ok
 test_secret_and_invalid_updates (test_app.AppTests.test_secret_and_invalid_updates) ... ok
+test_seed_has_no_completion_after_demo_date (test_app.AppTests.test_seed_has_no_completion_after_demo_date) ... ok
 test_seed_repeated_and_dataset (test_app.AppTests.test_seed_repeated_and_dataset) ... ok
 test_stale_button_and_cancel (test_app.AppTests.test_stale_button_and_cancel) ... ok
 test_transfer_preserves_original_and_forecast (test_app.AppTests.test_transfer_preserves_original_and_forecast) ... ok
+test_transport_exception_does_not_leave_sending_forever (test_app.AppTests.test_transport_exception_does_not_leave_sending_forever) ... ok
 test_uncertain_delivery_is_not_retried (test_app.AppTests.test_uncertain_delivery_is_not_retried) ... ok
 test_unknown_and_inactive_users (test_app.AppTests.test_unknown_and_inactive_users) ... ok
 test_control_example (test_app.FinancialTests.test_control_example) ... ok
@@ -23,8 +32,13 @@ test_null_is_incomplete (test_app.FinancialTests.test_null_is_incomplete) ... ok
 test_rework_delta (test_app.FinancialTests.test_rework_delta) ... ok
 test_zero_is_known (test_app.FinancialTests.test_zero_is_known) ... ok
 test_zero_revenue (test_app.FinancialTests.test_zero_revenue) ... ok
+test_bad_row_is_excluded_and_reported (test_dashboard.DashboardTests.test_bad_row_is_excluded_and_reported) ... ok
+test_deadline_partition_and_overlapping_kpis (test_dashboard.DashboardTests.test_deadline_partition_and_overlapping_kpis) ... ok
+test_finance_uses_complete_actuals_and_arithmetic_average (test_dashboard.DashboardTests.test_finance_uses_complete_actuals_and_arithmetic_average) ... ok
+test_top_five_puts_overdue_open_problems_first (test_dashboard.DashboardTests.test_top_five_puts_overdue_open_problems_first) ... ok
+test_unknown_finance_is_not_zero_and_empty_average_is_null (test_dashboard.DashboardTests.test_unknown_finance_is_not_zero_and_empty_average_is_null) ... ok
 
 ----------------------------------------------------------------------
-Ran 25 tests in 3.560s
+Ran 39 tests in 5.811s
 
 OK

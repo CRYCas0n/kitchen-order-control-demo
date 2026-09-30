@@ -1,0 +1,52 @@
+{
+  "integrity": "ok",
+  "counts": {
+    "orders": 24,
+    "costs": 24,
+    "tasks": 6,
+    "history": 36,
+    "telegram_users": 2
+  },
+  "order_3": {
+    "stage": "Приёмка",
+    "completed_date": null,
+    "problem_status": "open"
+  },
+  "live_problem": {
+    "id": 31,
+    "event_type": "problem",
+    "source": "telegram",
+    "telegram_update_id": 586212957
+  },
+  "live_completion": {
+    "id": 33,
+    "event_type": "completed",
+    "source": "telegram",
+    "telegram_update_id": 586212965
+  },
+  "notification": {
+    "id": 24,
+    "status": "sent",
+    "notification": 1
+  },
+  "outbox_counts": {
+    "sent": 38
+  },
+  "future_completions": 0,
+  "env_permissions": "0o640",
+  "env_owned_by_root": true,
+  "local_http_disabled": true,
+  "service": "active",
+  "enabled": "enabled",
+  "service_user": "kitchen-control",
+  "caddy_sha256": "a5f2d34c56a40eef7aea106d955f95b4e3ce12e1719dc38012687d337006912c",
+  "backend_listeners": [
+    "172.18.0.1:18080"
+  ],
+  "webhook": {
+    "url": "https://kitchen.45-67-202-162.sslip.io/telegram/webhook",
+    "pending_update_count": 0,
+    "last_error_date": null
+  },
+  "webhook_matches": true
+}

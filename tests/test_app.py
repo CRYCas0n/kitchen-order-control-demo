@@ -301,5 +301,75 @@ class AppTests(unittest.TestCase):
             self.assertEqual(db.execute('SELECT COUNT(*) FROM history WHERE telegram_update_id=777777').fetchone()[0],1)
             self.assertEqual(db.execute("SELECT COUNT(*) FROM telegram_outbox WHERE dedupe_key='777777:reply'").fetchone()[0],1)
 
+    def test_notification_reply_does_not_claim_queue_when_coordinator_missing(self):
+        self.settings.coordinator_telegram_id = None
+        self.send(callback='confirm:'+self.problem())
+        with connect(self.path) as db:
+            reply=json.loads(db.execute("SELECT body FROM telegram_outbox WHERE dedupe_key=?",(f'{self.uid}:reply',)).fetchone()[0])['text']
+            self.assertIn('не подключён',reply)
+            self.assertNotIn('подготовлено',reply)
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM telegram_outbox WHERE notification=1').fetchone()[0],0)
+
+    def test_oversized_update_id_is_validation_error_not_server_error(self):
+        with TestClient(self.app,base_url='https://testserver',raise_server_exceptions=False) as client:
+            response=client.post('/telegram/webhook',json={'update_id':2**80},headers={'X-Telegram-Bot-Api-Secret-Token':'test-secret'})
+        self.assertEqual(response.status_code,422)
+        for value in (2**80, -1, 0):
+            self.assertEqual(self.client.get(f'/api/orders/{value}').status_code,422)
+
+    def test_malformed_telegram_delivery_confirmation_is_uncertain(self):
+        from unittest.mock import AsyncMock, patch
+        from app.telegram import TelegramAPI
+        import httpx
+        for body in ([], {'unexpected':True}):
+            response=httpx.Response(200,json=body)
+            with patch('app.telegram.httpx.AsyncClient.post',new=AsyncMock(return_value=response)):
+                status,_=asyncio.run(TelegramAPI('test-token').call('sendMessage',{}))
+                self.assertEqual(status,'uncertain')
+
+    def test_oversized_task_and_sender_ids_cannot_crash_webhook(self):
+        self.send(callback='done:'+str(2**80))
+        self.send('/start',user=2**80)
+        self.assertEqual(self.client.get('/api/orders/1').json()['stage'],'Монтаж')
+
+    def test_restart_records_uncertain_notification_in_history(self):
+        self.send(callback='confirm:'+self.problem())
+        with connect(self.path) as db:
+            db.execute("UPDATE telegram_outbox SET status='sending' WHERE notification=1")
+        with TestClient(create_app(self.settings,self.fake,worker=False),base_url='https://testserver'):
+            pass
+        history=self.client.get('/api/orders/1/history').json()
+        self.assertEqual(sum(h['event_type']=='notification_uncertain' for h in history),1)
+        asyncio.run(drain_outbox(self.path,self.fake))
+        self.assertFalse(any(body.get('chat_id')==303 for _,body in self.fake.calls))
+
+    def test_transport_exception_does_not_leave_sending_forever(self):
+        class BrokenTransport:
+            async def call(self,method,body):
+                raise RuntimeError('transport broke')
+        self.send('/start')
+        asyncio.run(drain_outbox(self.path,BrokenTransport()))
+        with connect(self.path) as db:
+            self.assertEqual(db.execute('SELECT status FROM telegram_outbox').fetchone()[0],'uncertain')
+
+    def test_seed_has_no_completion_after_demo_date(self):
+        data=self.client.get('/api/dashboard').json()
+        self.assertTrue(all(not o['completed_date'] or o['completed_date']<=data['demo_date'] for o in data['orders']))
+
+    def test_access_revoked_and_stage_changed_during_confirmation(self):
+        nonce=self.problem()
+        with connect(self.path) as db:
+            db.execute("UPDATE tasks SET assignee_code='INSTALL-02' WHERE id=1")
+        self.send(callback='confirm:'+nonce)
+        self.assertFalse(self.client.get('/api/orders/1').json()['open_problem'])
+        with connect(self.path) as db:
+            db.execute("UPDATE tasks SET assignee_code='INSTALL-01' WHERE id=1")
+        self.send(callback='done:1');nonce=self.nonce()
+        self.send(callback='check:'+nonce);self.send('Готово');self.send(callback='skip:'+nonce)
+        with connect(self.path) as db:
+            db.execute("UPDATE orders SET stage='Приёмка' WHERE id=1")
+        self.send(callback='confirm:'+nonce)
+        self.assertNotEqual(self.client.get('/api/orders/1').json()['tasks'][0]['status'],'completed')
+
 
 if __name__=='__main__':unittest.main()

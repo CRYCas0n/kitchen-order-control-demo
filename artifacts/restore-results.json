@@ -1,0 +1,7 @@
+{
+  "result": "PASS",
+  "scope": "Fresh temporary checkout, new venv, pinned dependencies, blank .env.example, no existing SQLite or credentials",
+  "seed": "24 orders; repeated seed preserves data",
+  "tests": "39 tests PASS in fresh environment",
+  "http": "health/dashboard/index OK; unconfigured admin closed"
+}

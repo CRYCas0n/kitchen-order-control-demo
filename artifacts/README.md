@@ -18,7 +18,7 @@
 | 14-rework-detail-public.png | Заказ после изменения переделки | Публичный backend |
 | 15-rework-economy-public.png | Доход 25 000 ₽ и маржинальность 8,33% | Публичный backend |
 | 16-mobile-public.png | Мобильный публичный сайт | Публичный backend |
-| 20-automated-tests.png | 25 тестов PASS и полный вывод unittest | Скриншот HTML-отчёта, построенного из фактического запуска |
+| 20-automated-tests.png | 39 тестов PASS и полный вывод unittest | Скриншот HTML-отчёта, построенного из фактического запуска |
 | 21-real-telegram-problem-public.png | Реальная проблема монтажника в публичной карточке | Настоящий Telegram update_id=586212949 → production SQLite → браузер |
 | 22-real-telegram-history-public.png | История после настоящего Telegram-сообщения | Production backend; это не simulation |
 | telegram-live-evidence.json | Публичные данные реально полученной проблемы | Production API, source=telegram; без Telegram user ID и секретов |
@@ -32,6 +32,11 @@
 | automated-tests.txt / automated-tests.html | Сохранённый фактический вывод unittest | Локальная проверка, тестовый Telegram transport |
 | browser-results.json | Итоги браузерных сценариев | Локальные фактические проверки |
 | public-results.json | Итоги публичной проверки | Настоящий HTTPS endpoint |
+| 30–33, dashboard-public-results.json | Дашборд руководителя, KPI, графики, desktop/mobile | Локальный и публичный backend |
+| production-review.json | Read-only состояние сервиса, БД, webhook и прежнего Telegram E2E после финальной выкладки | VPS + настоящий Telegram getWebhookInfo |
+| security-review.json | Сканирование credentials и запрещённых файлов, включая индекс и историю Git | Фактический локальный запуск; значения секретов не выводятся |
+| dependency-audit.json | Аудит закреплённых зависимостей | pip-audit, известные advisory на момент проверки |
+| restore-results.json | Восстановление и тесты без существующей среды, SQLite и credentials | Новый временный каталог и virtualenv, зависимости из lock-файла |
 
 Скриншоты самого Telegram-клиента не имитируются HTML-макетом и не заменяются тестовым payload. Их сохраняет владелец; пока получены текстовые подтверждения из настоящего клиента (docs/TELEGRAM_RECEIPTS.md). Живые проверки Telegram уже выполнены и имеют отдельные доказательства в SQLite, API, публичном браузере и переписке.
 

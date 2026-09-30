@@ -12,6 +12,7 @@ from .validation import iso_date
 
 logger = logging.getLogger(__name__)
 ROLES = {"installer": "Монтажник", "measurer": "Замерщик", "coordinator": "Координатор"}
+MAX_SQLITE_ID = 2**63 - 1
 CHECKLISTS = {
     "installer": ["Монтаж завершён", "Основные элементы проверены", "Замечания зафиксированы", "Рабочая зона передана"],
     "measurer": ["Основные размеры проверены", "Особенности помещения зафиксированы", "Необходимые замечания добавлены"],
@@ -29,6 +30,8 @@ class TelegramAPI:
             async with httpx.AsyncClient(timeout=12) as client:
                 response = await client.post(f"https://api.telegram.org/bot{self.token}/{method}", json=body)
             data = response.json()
+            if not isinstance(data, dict) or not isinstance(data.get("ok"), bool):
+                return "uncertain", "Некорректное подтверждение Telegram; проверьте доставку перед повтором"
             if response.is_success and data.get("ok"):
                 return "sent", None
             # Do not log request URLs or raw remote errors: they may contain secrets.
@@ -50,7 +53,7 @@ def buttons(rows):
 def process_update(db, update, settings):
     """Caller owns BEGIN IMMEDIATE. Business writes, sessions and outbox commit together."""
     uid = update.get("update_id")
-    if type(uid) is not int or uid < 0:
+    if type(uid) is not int or not 0 <= uid <= MAX_SQLITE_ID:
         raise ValueError("Некорректный update_id")
     if not db.execute("INSERT OR IGNORE INTO telegram_updates VALUES (?,?)", (uid, now())).rowcount:
         return {"ok": True, "duplicate": True}
@@ -59,7 +62,7 @@ def process_update(db, update, settings):
     sender = callback.get("from") or message.get("from") or {}
     telegram_id = sender.get("id")
     chat = message.get("chat") or {}
-    if type(telegram_id) is not int or chat.get("type") != "private" or chat.get("id") != telegram_id or sender.get("is_bot"):
+    if type(telegram_id) is not int or not 0 < telegram_id <= MAX_SQLITE_ID or chat.get("type") != "private" or chat.get("id") != telegram_id or sender.get("is_bot"):
         return {"ok": True, "ignored": True}
     if callback.get("id"):
         queue(db, uid, "ack", {"callback_query_id": callback["id"]}, method="answerCallbackQuery")
@@ -93,6 +96,8 @@ def process_update(db, update, settings):
         return {"ok": True}
 
     def own_task(task_id):
+        if not 0 < task_id <= MAX_SQLITE_ID:
+            return None
         task = db.execute("""SELECT t.*,o.stage,o.order_number FROM tasks t JOIN orders o ON o.id=t.order_id
                              WHERE t.id=? AND t.assignee_code=? AND t.role=?""",
                           (task_id, user["assignee_code"], user["role"])).fetchone()
@@ -108,10 +113,11 @@ def process_update(db, update, settings):
         coordinator = db.execute("SELECT 1 FROM telegram_users WHERE telegram_id=? AND role='coordinator' AND active=1", (target,)).fetchone()
         if not target or not coordinator:
             add_history(db, task["order_id"], "notification_failed", "Уведомление не отправлено: координатор не подключён.")
-            return
+            return False
         queue(db, uid, "coordinator", {"chat_id": target,
               "text": f"{task['order_number']} · {user['display_name']} / {ROLES[user['role']]}\n{summary}"},
               order_id=task["order_id"], notification=True)
+        return True
 
     parts = data.split(":")
     if parts[0] in ("task", "accept", "problem", "transfer", "done") and len(parts) == 2 and parts[1].isdigit():
@@ -186,8 +192,9 @@ def process_update(db, update, settings):
                        (payload["type"], payload["comment"], payload["help"], payload["help"], task["due_date"], task["order_id"]))
             db.execute("UPDATE tasks SET status='problem',comment=?,updated_at=? WHERE id=?", (payload["comment"], now(), task["id"]))
             history(task, "problem", f"Сообщил о проблеме: {payload['type']}. {payload['comment']}. Нужна помощь: {payload['help']}", payload)
-            notify(task, f"Проблема: {payload['type']}\n{payload['comment']}\nНужна помощь: {payload['help']}\nСледующее действие: {payload['help']}")
-            reply("Проблема сохранена. Координатору подготовлено уведомление. /tasks")
+            queued = notify(task, f"Проблема: {payload['type']}\n{payload['comment']}\nНужна помощь: {payload['help']}\nСледующее действие: {payload['help']}")
+            reply("Проблема сохранена. " + ("Уведомление координатору поставлено в очередь." if queued else
+                  "Координатор не подключён, уведомление не отправлено. Сообщите администратору.") + " /tasks")
         elif action == "transfer":
             db.execute("UPDATE tasks SET status='transfer_requested',proposed_date=?,transfer_reason=?,updated_at=? WHERE id=?",
                        (payload["date"], payload["reason"], now(), task["id"]))
@@ -272,7 +279,11 @@ async def drain_outbox(path, api):
                 return
             row = dict(row)
             db.execute("UPDATE telegram_outbox SET status='sending',updated_at=? WHERE id=?", (now(), row["id"]))
-        status, error = await api.call(row["method"], json.loads(row["body"]))
+        try:
+            status, error = await api.call(row["method"], json.loads(row["body"]))
+        except Exception:
+            # The request might already have reached Telegram; never retry it blindly.
+            status, error = "uncertain", "Ошибка обработки доставки; проверьте Telegram перед повтором"
         with connect(path) as db:
             db.execute("UPDATE telegram_outbox SET status=?,error=?,updated_at=? WHERE id=?", (status, error, now(), row["id"]))
             if row["notification"]:

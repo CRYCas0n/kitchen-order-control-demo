@@ -8,3 +8,15 @@ __pycache__/
 data/
 artifacts/local-*
 node_modules/
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite-*
+*.sqlite3-*
+*.log
+*.pem
+*.key
+*.bak
+*.tar.gz
+backups/

@@ -72,7 +72,16 @@ function renderOverview() {
 function validSnapshot(data) {
   const s=data?.summary;
   const counts=values=>values.every(value=>Number.isInteger(value)&&value>=0);
+  const object=value=>value!==null&&typeof value==='object'&&!Array.isArray(value);
+  const amount=value=>value===null||Number.isFinite(value);
+  const validOrder=o=>object(o)&&Number.isSafeInteger(o.id)&&Array.isArray(o.history)&&o.history.every(object)&&
+    Array.isArray(o.tasks)&&o.tasks.every(object)&&object(o.costs)&&object(o.economy)&&
+    ['promised_date_initial','forecast_date','next_action_due'].every(key=>typeof o[key]==='string')&&
+    (o.completed_date===null||typeof o.completed_date==='string')&&
+    (Boolean(o.data_error)||['plan','actual'].every(kind=>object(o.economy[kind])&&
+      Array.isArray(o.economy[kind].missing)&&['variable_costs','margin_income','margin_percent'].every(key=>amount(o.economy[kind][key]))));
   return Array.isArray(data?.orders) && Array.isArray(data.stages) && Boolean(data.demo_date) &&
+    data.orders.every(validOrder) &&
     s?.total_count===data.orders.length && Array.isArray(s.stages) && s.stages.every(row=>typeof row.stage==='string'&&counts([row.count])) &&
     s.kpis && counts(Object.keys(labels).map(key=>s.kpis[key])) &&
     s.deadlines && counts(['on_time','risk','overdue','completed_late'].map(key=>s.deadlines[key])) &&
@@ -123,12 +132,19 @@ async function refresh() {
     const data = await response.json();
     if (!validSnapshot(data) || (mode==='backend' && data.source!=='backend')) throw new Error('Invalid response');
     if (request !== requestNumber) return;
-    snapshot = data;
+    const previous=snapshot;
+    try {
+      snapshot=data;
+      populateFilters();
+      render();
+    } catch(error) {
+      snapshot=previous;
+      if(previous){populateFilters();render();}
+      throw error;
+    }
     lastSuccess = new Date().toISOString();
     $('last-updated').textContent = time(lastSuccess);
     $('error').hidden = true;
-    populateFilters();
-    render();
   } catch {
     if (request !== requestNumber) return;
     $('error').hidden = false;

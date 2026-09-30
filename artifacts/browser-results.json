@@ -7,8 +7,10 @@
     "Problem details, financial calculation and history: PASS",
     "Failed refresh preserves last successful timestamp and shows stale-data warning; recovery: PASS",
     "Malformed successful HTTP response does not replace valid charts or timestamp: PASS",
+    "Malformed order with an open detail dialog preserves the old snapshot and success timestamp: PASS",
     "Explicit simulation changes only local data and labels history as simulation: PASS",
     "Fresh API refresh updates KPI, stage/deadline/margin charts and aggregate income after real fixture/admin changes: PASS",
+    "Admin locks order/input during save; network uncertainty is explicit; saved order with invalid data does not crash UI: PASS",
     "Browser admin -> HTTP API -> SQLite -> dashboard: margin falls to 25000, low-margin warning: PASS",
     "390px mobile layout: no page-level horizontal overflow: PASS",
     "Browser JavaScript errors: 0"
