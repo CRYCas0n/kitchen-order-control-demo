@@ -1,58 +1,29 @@
 # Контроль заказов кухонной фабрики
 
-Небольшой рабочий прототип для демонстрации автоматизации: исполнитель сообщает о проблеме в Telegram, координатор видит её в заказе и учитывает стоимость переделки. Это демонстрационные данные: 24 вымышленных заказа, три шоурума и дилеры в пяти городах.
+Работающий учебный прототип: координатор видит сроки, проблемы, следующие действия и экономику заказов; замерщик и монтажник передают изменения через Telegram. База содержит 24 вымышленных заказа, три шоурума и дилеров в пяти городах. Дата расчёта просрочек фиксирована — **30.09.2026**.
 
-- Сайт: https://kitchen.45-67-202-162.sslip.io
-- Координатор: https://kitchen.45-67-202-162.sslip.io/admin
-- Бот: https://t.me/kitchen_control_dev_bot
-- Приватный репозиторий: https://github.com/CRYCas0n/kitchen-order-control-demo — ветка `main`, доступ только приглашённым пользователям
-- [Фактические результаты проверок](docs/TEST_RESULTS.md)
-- [Журнал проблем](docs/ISSUE_LOG.md)
-- [Окружение и архитектура](docs/ARCHITECTURE.md)
-- [Сценарий показа](docs/DEMO.md)
-- [Текст работодателю](docs/EMPLOYER.md)
-- [Скриншоты и их происхождение](artifacts/README.md)
+- [Публичный сайт](https://kitchen.45-67-202-162.sslip.io) · [Admin](https://kitchen.45-67-202-162.sslip.io/admin) · [Telegram-бот](https://t.me/kitchen_control_dev_bot).
+- [Приватный репозиторий](https://github.com/CRYCas0n/kitchen-order-control-demo), основная ветка `main`.
+- **39 автоматических тестов**; реальные результаты и ограничения — [TEST_RESULTS.md](docs/TEST_RESULTS.md).
 
-Статус реальной Telegram-проверки смотрите в TEST_RESULTS: работающий webhook и тестовый HTTP payload сами по себе не доказывают весь путь из пользовательского Telegram-клиента.
+![Дашборд с KPI, сроками и экономикой](artifacts/32-executive-dashboard-public.png)
 
 ## Архитектура
 
-```mermaid
-flowchart LR
-  T[Telegram исполнителя] -->|HTTPS + secret header| C[Caddy]
-  B[Браузер] -->|HTTPS| C
-  C --> A[FastAPI / Uvicorn]
-  A --> D[(SQLite)]
-  D --> O[Очередь исходящих сообщений]
-  O -->|Telegram Bot API| N[Telegram координатора]
-```
+Python/FastAPI обслуживает HTML/CSS/обычный JavaScript и JSON API, вычисляет показатели и сохраняет данные в SQLite. Telegram присылает updates в защищённый webhook; изменения, история и очередь сообщений записываются транзакционно. Один фоновый обработчик отправляет ответы/уведомления. На VPS один Uvicorn под systemd, HTTPS через существующий Caddy в Docker. Node.js, сборка frontend и отдельная аналитическая БД не требуются. Сайт обновляется кнопкой, а не в реальном времени.
 
-HTML, CSS и vanilla JavaScript. Один Python-процесс, FastAPI, SQLite, systemd; существующий Caddy. API и frontend на одном origin. Нет polling Telegram, Redis, WebSocket, регистрации и CRM-функций.
+## Быстрый локальный запуск
 
-```
-app/          API, расчёты, SQLite, Telegram-диалоги
-static/       публичные HTML/CSS/JS и снимок учебных данных
-templates/    защищённая HTML-страница координатора
-scripts/      seed, настройка бота, пользователи, backup, проверки браузером
-tests/        unittest: бизнес-правила, API, Telegram, безопасность
-deploy/       systemd, Caddy, выкладка и диагностика
-data/         рабочая SQLite, WAL и backup; не публикуются и не входят в Git
-docs/         документация и результаты
-artifacts/    реальные скриншоты и результаты проверок
-```
-
-## Установка и локальный запуск
-
-Требуется Python 3.12+; проверено на Python 3.12 (Ubuntu) и 3.14 (Windows). Для сервера не нужны Node.js и браузер.
+Python 3.12+, доступ к приватному репозиторию. После clone войдите в его корень.
 
 Linux/macOS:
 
 ```bash
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements-lock.txt
-cp -n .env.example .env
+test -e .env || cp .env.example .env
 .venv/bin/python -m scripts.seed
-.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
 Windows PowerShell:
@@ -60,199 +31,45 @@ Windows PowerShell:
 ```powershell
 python -m venv .venv
 .venv\Scripts\python -m pip install -r requirements-lock.txt
-# Только если .env ещё не существует:
-Copy-Item .env.example .env
+if (-not (Test-Path -LiteralPath '.env')) { Copy-Item -LiteralPath '.env.example' -Destination '.env' }
 .venv\Scripts\python -m scripts.seed
 .venv\Scripts\python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-Откройте http://127.0.0.1:8000. Локальные секреты уже созданной установки находятся в `.env`; не перезаписывайте его примером. Для разработки admin на loopback разрешается `ALLOW_LOCAL_HTTP=true`. На сервере обязательно `false`; там admin работает только через HTTPS.
+Откройте http://127.0.0.1:8000, проверьте `/api/health`. Для локального admin задайте собственный ADMIN_PASSWORD и ALLOW_LOCAL_HTTP=true в приватном `.env`, затем перезапустите процесс. По умолчанию доступ к admin закрыт; для просмотра Telegram token не нужен. Production требует HTTPS и ALLOW_LOCAL_HTTP=false. Повтор seed сохраняет существующие заказы; `--reset` не является командой обновления.
 
-В новой установке заполните `ADMIN_PASSWORD` собственным случайным паролем и перезапустите процесс. Пустой пароль из `.env.example` намеренно закрывает admin (HTTP 503). Для просмотра dashboard токен Telegram не требуется. Для воспроизводимой установки используйте `requirements-lock.txt`; дополнительные браузерные инструменты — `requirements-dev.txt`.
+Тесты: `.venv/bin/python -m unittest discover -s tests -v` (Windows — `.venv\Scripts\python`). Полная установка, Telegram и browser checks — по ссылкам ниже.
 
-## Настройки
+## Документация
 
-| Переменная | Назначение |
+| Документ | Для чего |
 |---|---|
-| `DATABASE_PATH` | По умолчанию `data/app.db`, относительно каталога проекта |
-| `PUBLIC_BASE_URL` | Публичный HTTPS origin без завершающего `/` |
-| `ADMIN_USERNAME` | Логин координатора |
-| `ADMIN_PASSWORD` | Случайный пароль, только в `.env` / EnvironmentFile |
-| `TELEGRAM_BOT_TOKEN` | Токен отдельного бота от @BotFather |
-| `TELEGRAM_WEBHOOK_SECRET` | Случайный секрет: латиница, цифры, `_`, `-` |
-| `COORDINATOR_TELEGRAM_ID` | ID пользователя-координатора, который также внесён в allowlist |
-| `ALLOW_LOCAL_HTTP` | Только локальная разработка; в production `false` |
+| [Project overview](docs/PROJECT_OVERVIEW.md) | Назначение, реализованные потоки и границы проекта |
+| [User guide](docs/USER_GUIDE.md) | Сводка, фильтры, карточки, сроки и экономика простым языком |
+| [Telegram guide](docs/TELEGRAM_GUIDE.md) | Замерщик, монтажник, координатор и частые ситуации |
+| [Business rules](docs/BUSINESS_RULES.md) | Стадии, даты, действия, формулы и агрегаты |
+| [Technical guide](docs/TECHNICAL_GUIDE.md) | Модули, потоки данных, frontend/backend и обработка ошибок |
+| [API](docs/API.md) | Все существующие маршруты, input/output, авторизация и ошибки |
+| [Database](docs/DATABASE.md) | Реальные таблицы, связи, NULL, seed, backup и идемпотентность |
+| [Setup](docs/SETUP.md) | Clone, venv, настройки, локальный запуск и тесты |
+| [Deployment](docs/DEPLOYMENT.md) | Фактический VPS, systemd/Caddy и безопасная выкладка |
+| [Operations](docs/OPERATIONS.md) | Диагностика, пользователи, credentials, backup/restore |
+| [Troubleshooting](docs/TROUBLESHOOTING.md) | Симптом → причина → проверка → исправление |
+| [Security](docs/SECURITY.md) | Секреты, защита приложения и checklist передачи |
+| [Testing](docs/TESTING.md) | Автотесты, browser/manual E2E и влияние служебных scripts |
+| [Demo script](docs/DEMO_SCRIPT.md) | Показ за 2–3 минуты с короткими репликами |
+| [Limitations](docs/LIMITATIONS.md) | Что прототип не делает и что не проверено |
+| [Glossary](docs/GLOSSARY.md) | Словарь пользовательских и технических терминов |
+| [Test results](docs/TEST_RESULTS.md) | Фактические PASS/FAIL/NOT TESTED, включая исторические этапы |
+| [Issue log](docs/ISSUE_LOG.md) | Реальные найденные проблемы и исправления; история сохранена |
+| [Documentation review](docs/DOCUMENTATION_REVIEW.md) | Источники, сверки документации и найденные расхождения |
 
-`DEMO_DATE = 2026-09-30` и `LOW_MARGIN_THRESHOLD = 15` определены в `app/config.py`. Они передаются frontend через API/учебный снимок. Дата демонстрации используется для просрочек; реальные временные отметки событий хранятся отдельно, в UTC.
+Дополнительно: [историческое обследование сервера](docs/ARCHITECTURE.md), [текст для работодателя](docs/EMPLOYER.md), [подтверждения Telegram](docs/TELEGRAM_RECEIPTS.md), [происхождение скриншотов и отчётов](artifacts/README.md). Старые ссылки [DEMO.md](docs/DEMO.md) и [DASHBOARD.md](docs/DASHBOARD.md) ведут к актуальным руководствам.
 
-Ни токен, ни пароль не передаются frontend. `.env` исключён из Git, SQLite находится вне static. Для входа в `/admin` используйте `ADMIN_USERNAME` и `ADMIN_PASSWORD` из локального `.env`. Лучше открывать admin в приватном окне: HTTP Basic кэшируется браузером до завершения сессии.
+Начинающему пользователю: User guide → Telegram guide. Разработчику: Project overview → Setup → Technical guide → Business rules/API/Database. Администратору: Deployment → Operations → Security → Troubleshooting.
 
-## База и воспроизводимый seed
+## Существенные границы
 
-```bash
-.venv/bin/python -m scripts.seed
-.venv/bin/python -m scripts.seed --export
-```
+Монтаж переводит заказ в **«Приёмку»**, не закрывает его и не снимает открытую проблему. Запрос переноса не меняет первоначальный срок/прогноз. `NULL` не равен нулю; маржинальный доход не является чистой прибылью. Admin меняет только фактическую стоимость переделки. Публичное чтение предназначено для учебных данных; `.env`, рабочая SQLite и backup не входят в Git.
 
-Повторный seed сохраняет существующие данные и не создаёт дубли. `--export` обновляет `static/demo-data.json`; экспортируйте исходный учебный набор, а не реальные персональные сведения.
-
-Для **осознанного удаления учебных бизнес-событий**:
-
-```bash
-.venv/bin/python -m scripts.manage backup data/before-reset.db
-sudo systemctl stop kitchen-control
-sudo -u kitchen-control .venv/bin/python -m scripts.seed --reset
-sudo systemctl start kitchen-control
-```
-
-`--reset` очищает заказы, задания, историю, состояния диалогов и очередь, но сохраняет allowlist пользователей. Выполняйте при остановленном сервисе. Старые кнопки в Telegram после reset не используйте: начинайте с `/start`.
-
-Заказы для живой демонстрации: **КФ-2601** и **КФ-2603** — монтаж (`INSTALL-01`); **КФ-2602** — замер (`MEASURE-01`). Остальные задачи относятся к другим исполнителям и проверяют изоляцию.
-
-## Telegram: подключение
-
-1. Создайте одного бота через @BotFather; сохраните токен в `.env`.
-2. Сначала поднимите публичный HTTPS сайт и убедитесь, что `/api/health` отвечает.
-3. Зарегистрируйте webhook:
-
-```bash
-.venv/bin/python -m scripts.manage webhook
-.venv/bin/python -m scripts.manage telegram-info
-```
-
-Скрипт передаёт `secret_token`, разрешает `message`/`callback_query`, не удаляет ожидающие updates. Backend проверяет `X-Telegram-Bot-Api-Secret-Token`; неизвестный или отсутствующий секрет получает 403. Вызовы с неверным секретом не принимаются как пользовательские события.
-
-4. Каждый тестовый пользователь открывает бота и нажимает `/start`. Неизвестному пользователю бот показывает его ID и не показывает задания.
-5. Добавьте ID в allowlist на сервере:
-
-```bash
-sudo -u kitchen-control .venv/bin/python -m scripts.manage add-user 111111111 installer INSTALL-01 'Илья Мартынов'
-sudo -u kitchen-control .venv/bin/python -m scripts.manage add-user 222222222 measurer MEASURE-01 'Павел Лесков'
-sudo -u kitchen-control .venv/bin/python -m scripts.manage add-user 333333333 coordinator COORD-01 'Мария Орлова'
-```
-
-Числа выше — только примеры, замените реальными ID. Укажите ID координатора в `COORDINATOR_TELEGRAM_ID`, затем перезапустите сервис. Координатор тоже должен первым открыть бота: бот не может начать личный диалог сам.
-
-Для сценария с одним аккаунтом роли можно переключать командой `add-user`, сохраняя вымышленное отображаемое имя. Это проверка ролей последовательно, а не доказательство одновременного обмена между двумя людьми.
-
-6. Пользователь повторяет `/start` или `/tasks`. Исполнитель видит только свои задания; права повторно проверяются при каждом действии и перед подтверждением.
-
-Команды: `/start`, `/tasks`, `/cancel`. Действия: «Принял задание», «Есть проблема», «Нужен перенос», «Выполнено». Многошаговый диалог хранится в SQLite и переживает перезапуск. Устаревшие кнопки подтверждения отклоняются по nonce. Диалог истекает через 24 часа.
-
-### Доставка и повторные updates
-
-Уникальный `update_id`, бизнес-изменения, история, состояние диалога и исходящие сообщения фиксируются одной транзакцией `BEGIN IMMEDIATE`. Повторный update возвращает 200 с `duplicate=true` и не создаёт новых операций или уведомлений.
-
-Исходящие сообщения хранятся в `telegram_outbox`. Один worker внутри приложения доставляет их через Telegram Bot API. Успешная отправка координатору создаёт отдельное системное событие. Сбой не выдаётся за успех.
-
-У Telegram `sendMessage` нет клиентского ключа идемпотентности. Если сеть оборвалась после отправки или процесс умер до записи ответа, невозможно достоверно определить, получено ли сообщение. Такие записи имеют `uncertain` и **не повторяются автоматически**, чтобы не создавать дубли. `failed` — явный отказ API. После устранения причины оператор проверяет доставку вручную; инструмент автоматического повторного уведомления намеренно не добавлен.
-
-```bash
-sudo -u kitchen-control .venv/bin/python -m scripts.manage outbox
-```
-
-Неподключённый координатор также оставляет явное событие в истории заказа. Для приёмки проекта необходима реальная проверка доставки, а не только запись в очереди.
-
-## Сроки и экономика
-
-На главной странице есть компактный дашборд: шесть кликабельных KPI, этапы и сроки, общая экономика, распределение маржинальности и пять заказов для внимания. Все показатели используют расчёты карточек из backend; новых таблиц или библиотек графиков нет. [Правила сводки и проверки](docs/DASHBOARD.md).
-
-- Активная просрочка: первоначальный срок раньше `DEMO_DATE`, заказ не завершён.
-- Риск задержки: прогноз позже первоначального срока. Это отдельный признак.
-- Завершённый заказ оценивается по фактической дате завершения и не попадает в активную просрочку.
-- Запрос переноса записывается в задание; исходный срок и официальный прогноз не меняются.
-- Завершение монтажа переводит заказ в **«Приёмка»**, замера — в **«Проектирование»**. Автоматического закрытия заказа нет.
-- Переменные расходы: материалы + изготовление + доставка + монтаж + комиссия + переделки.
-- Маржинальный доход: выручка − переменные расходы. Это **не чистая прибыль**.
-- `NULL` = отсутствует значение; `0` = подтверждённый нулевой расход. План не подставляется вместо факта.
-- При неполных данных итоговая экономика не рассчитывается. При нулевой выручке процент отсутствует.
-- Деньги проверяются через Decimal; принимаются неотрицательные суммы с максимум двумя десятичными знаками.
-
-## Имитация без backend
-
-В рабочем интерфейсе явно выберите «Режим имитации». Кнопка «Смоделировать сообщение монтажника» меняет только локальную копию КФ-2601 и добавляет событие `source=simulation`; SQLite и Telegram не используются. Обновление сбрасывает локальную имитацию.
-
-Чтобы показать frontend при отключённом backend:
-
-```bash
-.venv/bin/python -m scripts.offline
-```
-
-Откройте http://127.0.0.1:8080 и выберите режим имитации. Сервер публикует только static, а не весь каталог проекта. При недоступном API рабочий режим не переключается в имитацию сам: сохраняется прежняя отметка времени и показывается предупреждение об устаревших данных.
-
-## Production deployment
-
-Перед первой выкладкой проверьте сервер, свободный порт, сеть контейнера Caddy и другие virtual hosts. Файлы в `deploy/` отражают **фактически проверенное окружение этого сервера**, не универсальны для произвольного VPS.
-
-```powershell
-.venv\Scripts\python deploy/push.py root@45.67.202.162 --key C:\Users\Acer\.ssh\playlens_deploy
-```
-
-Скрипт использует проверенный SSH host key, загружает код и приватный `.env`, создаёт `/opt/kitchen-control`, отдельного системного пользователя и virtualenv. SQLite хранится в `data/`; исходный код принадлежит root, база — пользователю сервиса. Секреты: root:kitchen-control, `640`, каталог проекта `750`.
-
-Сервис слушает **172.18.0.1:18080**, только внутренний Docker bridge. Это исключение из предпочтения `127.0.0.1`: существующий Caddy работает в контейнере и не имеет доступа к loopback хоста. Публичный IP на 18080 не слушается. Proxy headers доверяются только проверенному адресу Caddy `172.18.0.3`. Если контейнер пересоздан с другим IP, обновите соответствующий параметр service и перепроверьте HTTPS/admin.
-
-`deploy/install.sh` сохраняет резервную копию Caddyfile, добавляет только новый virtual host, выполняет `caddy validate` и лишь затем `caddy reload`. При ошибке восстанавливает предыдущий файл. Существующие virtual hosts не переписываются. У Caddy уже был рабочий механизм получения HTTPS; сертификат нового host получен и проверен снаружи.
-
-systemd: непривилегированный пользователь, один worker, автоматический restart, ограничение памяти 220 МБ, запись только в `data/`, автозапуск после загрузки. Проверки:
-
-```bash
-systemctl status kitchen-control
-systemctl is-enabled kitchen-control
-journalctl -u kitchen-control -n 100 --no-pager
-curl -fsS https://kitchen.45-67-202-162.sslip.io/api/health
-docker exec caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
-```
-
-Доступность соседних приложений проверена после Caddy reload. Фактическую перезагрузку всего VPS не выполняли: на нём другие сервисы. Проверены stop/start/restart именно kitchen-control и сохранность данных; включение автозапуска проверено отдельно.
-
-### Backup и восстановление
-
-```bash
-cd /opt/kitchen-control
-sudo -u kitchen-control .venv/bin/python -m scripts.manage backup data/backup-2026-09-30.db
-```
-
-Используется SQLite backup API: копия согласована и учитывает WAL. Путь должен быть новым — существующие файлы не перезаписываются. Для восстановления: остановить сервис, сохранить текущую базу отдельным backup, проверить `PRAGMA integrity_check` резервной копии, заменить `data/app.db`, убрать старые WAL/SHM **только этой остановленной базы**, вернуть владельца kitchen-control и запустить сервис. Не копируйте один `app.db` у работающего процесса обычным `cp`.
-
-## Проверки
-
-```bash
-.venv/bin/python -m unittest discover -s tests -v
-```
-
-Стандартный unittest, без тяжёлого тестового framework. Тесты создают временную SQLite и подменяют только исходящий Telegram transport. Они не отправляют сообщения реальным пользователям.
-
-Браузерные проверки на Windows:
-
-```powershell
-.venv\Scripts\python -m pip install -r requirements-dev.txt
-.venv\Scripts\python -m scripts.browser_check
-.venv\Scripts\python -m scripts.dashboard_check
-.venv\Scripts\python -m scripts.public_check
-```
-
-`browser_check` использует изолированную локальную базу. `dashboard_check` проверяет публичный дашборд без изменения данных. `public_check` работает с публичным demo URL, меняет переделку КФ-2601 через admin, фиксирует доказательства и возвращает исходную сумму с сохранением аудита. Используется установленный Chrome. На машине без браузера установите Playwright Chromium (`python -m playwright install chromium`) и адаптируйте путь в public_check.
-
-Результаты и скриншоты записываются в `artifacts/`. Они не содержат токены, Basic Auth и секретные заголовки.
-
-Финальное ревью: **39 автоматических тестов**, проверка dashboard и admin в настоящем браузере, защита от повреждённых API-ответов, контроль истории и Telegram outbox после restart. [Фактический отчёт и ограничения живого E2E](docs/TEST_RESULTS.md).
-
-Перед commit/push выполните `.venv/bin/python -m scripts.security_check` (на Windows — `.venv\Scripts\python`). Проверяются рабочие файлы, staged-версии и вся достижимая Git-история на известные локальные секреты и шаблоны токенов/ключей. Проверка не выводит значения credentials. `.env`, SQLite, ключи, backup и локальные служебные файлы исключены из Git.
-
-Для установок со старым seed предусмотрено одноразовое исправление даты **нетронутого учебного КФ-2611**: после SQLite backup запустите `python -m scripts.correct_demo_dates`. Скрипт проверяет точное исходное состояние и отсутствие бизнес-истории, исправляет ошибку будущего завершения относительно DEMO_DATE и записывает аудит. Повторный запуск ничего не меняет. Это исправление seed; Telegram-запросы переноса по-прежнему не изменяют первоначальный срок.
-
-## Границы прототипа
-
-Публичное чтение допустимо только для вымышленных данных. Нет регистрации, официального согласования переноса, закрытия приёмки, разрешения проблем, планировщика назначений или хранения фотографий: это вне задания. Фото сохраняется только как Telegram file_id, публичный API его не раскрывает. Для production с реальными клиентами нужны отдельные требования к доступу и данным.
-
-Сохраните ссылку на текущую AI-сессию либо скриншоты ключевых этапов; они подтверждают использование AI при разработке.
-
-## Проверенные первичные источники
-
-- [Telegram Bot API: setWebhook и secret_token](https://core.telegram.org/bots/api#setwebhook)
-- [FastAPI: HTTP Basic Auth](https://fastapi.tiangolo.com/advanced/security/http-basic-auth/)
-- [Caddy: reverse_proxy](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy)
-- [sslip.io / nip.io: DNS и HTTPS](https://nip.io/)
-
-Проверено 30.09.2026. Технический DNS-адрес работает без покупки домена; условия и доступность внешнего DNS-сервиса не гарантируются навсегда.
+Прежний Telegram E2E подтверждён настоящими аккаунтами; новый живой прогон после финальных исправлений не проводился по выбору владельца. Это отделено от 39 автотестов и браузерных проверок в Test results.

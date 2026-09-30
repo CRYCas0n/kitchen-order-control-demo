@@ -1,7 +1,7 @@
 {
   "result": "PASS",
-  "tracked_files": 87,
-  "history_blobs_scanned": 103,
+  "tracked_files": 106,
+  "history_blobs_scanned": 141,
   "private_local_files_ignored": 4,
   "findings": [],
   "scope": "known local credentials plus token/key patterns in tracked tree, index and all reachable history; private local paths ignored"

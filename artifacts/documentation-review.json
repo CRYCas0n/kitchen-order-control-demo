@@ -1,0 +1,15 @@
+{
+  "result": "PASS",
+  "markdown_files": 26,
+  "relative_links": 108,
+  "declared_routes": 9,
+  "database_tables": 8,
+  "environment_variables": 8,
+  "unittest_methods_in_source": 39,
+  "issues": [],
+  "scope": "local links; JSON/Python example syntax; routes/tables/env/service values; CLI help; isolated API/seed examples",
+  "not_executed": [
+    "production restore/reset/deploy commands",
+    "new live Telegram client E2E"
+  ]
+}
