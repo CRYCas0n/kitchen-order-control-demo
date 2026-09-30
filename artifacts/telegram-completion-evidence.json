@@ -1,0 +1,63 @@
+{
+  "order": {
+    "id": 3,
+    "order_number": "КФ-2603",
+    "stage": "Приёмка",
+    "completed_date": null,
+    "problem_status": "open"
+  },
+  "task": {
+    "id": 3,
+    "status": "completed",
+    "completed_at": "2026-09-30T13:07:25+00:00",
+    "checklist_result": "[\"Монтаж завершён\", \"Основные элементы проверены\", \"Замечания зафиксированы\", \"Рабочая зона передана\"]",
+    "comment": "готово"
+  },
+  "history": [
+    {
+      "id": 3,
+      "event_type": "seed",
+      "source": "system",
+      "telegram_update_id": null,
+      "created_at": "2026-09-30T08:00:00+00:00",
+      "comment": "Создан учебный заказ. Все имена и суммы вымышлены."
+    },
+    {
+      "id": 31,
+      "event_type": "problem",
+      "source": "telegram",
+      "telegram_update_id": 586212957,
+      "created_at": "2026-09-30T13:04:36+00:00",
+      "comment": "Сообщил о проблеме: впвапва. 123. Нужна помощь: 23423423"
+    },
+    {
+      "id": 32,
+      "event_type": "notification_sent",
+      "source": "system",
+      "telegram_update_id": null,
+      "created_at": "2026-09-30T13:04:38+00:00",
+      "comment": "Координатору отправлено уведомление"
+    },
+    {
+      "id": 33,
+      "event_type": "completed",
+      "source": "telegram",
+      "telegram_update_id": 586212965,
+      "created_at": "2026-09-30T13:07:25+00:00",
+      "comment": "Задание выполнено. готово. Заказ переведён в «Приёмка»; весь заказ не закрыт."
+    }
+  ],
+  "notifications": [
+    {
+      "id": 24,
+      "update_id": 586212957,
+      "status": "sent",
+      "notification": 1
+    }
+  ],
+  "checks": "PASS: real SQLite state, checklist, cleared dialogue, notification and original update IDs",
+  "public_url": "https://kitchen.45-67-202-162.sslip.io",
+  "public_api_and_browser": "PASS",
+  "replay_of_real_completed_update_id": "PASS: duplicate=true, unchanged history and stage",
+  "user_confirmed_receipts": "Coordinator pasted automatic problem notification; installer pasted completion reply"
+}

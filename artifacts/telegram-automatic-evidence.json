@@ -1,0 +1,29 @@
+{
+  "order_id": 3,
+  "telegram_update_id": 586212957,
+  "telegram_problem_history": [
+    {
+      "id": 31,
+      "event_type": "problem",
+      "actor_type": "installer",
+      "actor_ref": "Илья Мартынов / Монтажник",
+      "source": "telegram",
+      "comment": "Сообщил о проблеме: впвапва. 123. Нужна помощь: 23423423",
+      "created_at": "2026-09-30T13:04:36+00:00"
+    }
+  ],
+  "notification_history": [
+    {
+      "id": 32,
+      "event_type": "notification_sent",
+      "actor_type": "system",
+      "actor_ref": "Система",
+      "source": "system",
+      "comment": "Координатору отправлено уведомление",
+      "created_at": "2026-09-30T13:04:38+00:00"
+    }
+  ],
+  "receipt_confirmed": "Owner pasted the coordinator Telegram notification in conversation",
+  "public_api_and_browser": "PASS",
+  "completion_stage": "Приёмка"
+}

@@ -22,10 +22,17 @@
 | 21-real-telegram-problem-public.png | Реальная проблема монтажника в публичной карточке | Настоящий Telegram update_id=586212949 → production SQLite → браузер |
 | 22-real-telegram-history-public.png | История после настоящего Telegram-сообщения | Production backend; это не simulation |
 | telegram-live-evidence.json | Публичные данные реально полученной проблемы | Production API, source=telegram; без Telegram user ID и секретов |
+| 23-automatic-telegram-problem-public.png | Проблема КФ-2603 после автоматического уведомления координатору | Настоящий update_id=586212957; ко времени снимка монтаж уже завершён |
+| 24-automatic-notification-history-public.png | История настоящей проблемы и автоматической отправки | Production backend |
+| 25-real-telegram-acceptance-board.png | КФ-2603 в колонке «Приёмка» | Реальное выполнение монтажником, update_id=586212965 |
+| 26-real-telegram-acceptance-detail.png | Детальная карточка после монтажа | Заказ ещё не завершён |
+| 27-real-telegram-completion-history.png | История завершения задания через Telegram | Production backend |
+| telegram-automatic-evidence.json | Доказательство автоматического уведомления | API и текстовое подтверждение владельца |
+| telegram-completion-evidence.json | SQLite, checklist, уведомление, стадия и проверка повторного update_id | Настоящие серверные данные; без user IDs и секретов |
 | automated-tests.txt / automated-tests.html | Сохранённый фактический вывод unittest | Локальная проверка, тестовый Telegram transport |
 | browser-results.json | Итоги браузерных сценариев | Локальные фактические проверки |
 | public-results.json | Итоги публичной проверки | Настоящий HTTPS endpoint |
 
-Скриншоты Telegram не имитируются HTML-макетом и не заменяются тестовым payload. Если их ещё нет, соответствующие пункты в TEST_RESULTS остаются NOT TESTED. Состояние Telegram после реального пользовательского действия проверяется отдельно.
+Скриншоты самого Telegram-клиента не имитируются HTML-макетом и не заменяются тестовым payload. Их сохраняет владелец; пока получены текстовые подтверждения из настоящего клиента (docs/TELEGRAM_RECEIPTS.md). Живые проверки Telegram уже выполнены и имеют отдельные доказательства в SQLite, API, публичном браузере и переписке.
 
 Пароли вводятся через HTTP authentication context вне видимой страницы; секретных заголовков, `.env`, bot token и SSH-ключей в скриншотах нет.
