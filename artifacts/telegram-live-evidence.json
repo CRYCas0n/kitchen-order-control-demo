@@ -1,0 +1,18 @@
+{
+  "url": "https://kitchen.45-67-202-162.sslip.io",
+  "order_id": 1,
+  "problem_status": "open",
+  "source": "telegram",
+  "events": [
+    {
+      "id": 27,
+      "event_type": "problem",
+      "actor_type": "installer",
+      "actor_ref": "Илья Мартынов / Монтажник",
+      "source": "telegram",
+      "comment": "Сообщил о проблеме: комплектация. 123. Нужна помощь: 123",
+      "created_at": "2026-09-30T12:56:41+00:00"
+    }
+  ],
+  "verified": "Real problem visible through public API and real browser; coordinator delivery checked separately"
+}

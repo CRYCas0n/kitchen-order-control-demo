@@ -19,6 +19,9 @@
 | 15-rework-economy-public.png | Доход 25 000 ₽ и маржинальность 8,33% | Публичный backend |
 | 16-mobile-public.png | Мобильный публичный сайт | Публичный backend |
 | 20-automated-tests.png | 25 тестов PASS и полный вывод unittest | Скриншот HTML-отчёта, построенного из фактического запуска |
+| 21-real-telegram-problem-public.png | Реальная проблема монтажника в публичной карточке | Настоящий Telegram update_id=586212949 → production SQLite → браузер |
+| 22-real-telegram-history-public.png | История после настоящего Telegram-сообщения | Production backend; это не simulation |
+| telegram-live-evidence.json | Публичные данные реально полученной проблемы | Production API, source=telegram; без Telegram user ID и секретов |
 | automated-tests.txt / automated-tests.html | Сохранённый фактический вывод unittest | Локальная проверка, тестовый Telegram transport |
 | browser-results.json | Итоги браузерных сценариев | Локальные фактические проверки |
 | public-results.json | Итоги публичной проверки | Настоящий HTTPS endpoint |
